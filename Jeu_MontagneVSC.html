@@ -22,10 +22,11 @@ var config = {
             default: 'arcade',
             arcade: {
                 gravity: { y: 200 },
-                debug: true
+                debug: false
             }
         },
         scene: {
+            
             preload: preload,
             create: create,
             update: update
@@ -34,21 +35,29 @@ var config = {
     
 var player;
 var Roger1;
-var Roger2;
-var Roger3;
-var Roger4;
-var Roger5;
 var Myreille1;
 var Myreille2;
-var Myreille3;
-var projectile;
-var platforms;
-//var grimpette;
-//var grimpette_player=false;
+
+//var projectile;
+
+var Plateforme;
+var Grimpette = false;
+var onGrimpette;
+var Glace;
+var Climb_Item;
+var Piques;
+var onPiques;
 var cursors;
 var HpSlime = 3;
+var Hearth1;
+var Hearth2;
+var Hearth3;
+var invincible = false ;
+var compteur = 30;
 var scoreText;
 var tween;
+var GameOver = false;
+var GameOverImage;
 
 
 var game = new Phaser.Game(config);
@@ -56,22 +65,22 @@ var game = new Phaser.Game(config);
     var jump =0;
     
     function preload()
-        {
-            this.load.image('tiles','assets/Tiles/Map.png');
-            this.load.tilemapTiledJSON('map','assets/Tiles/mapmountain.json');
+        {   
+            //Loading des Assets
+            this.load.image('tiles','assets/Map.png');
+            this.load.tilemapTiledJSON('map','assets/mapmountain.json');
 
             this.load.image('sky', 'assets/Ciel.png');
-            this.load.image('ground', 'assets/platforms.png');
+            this.load.image('GameOver','assets/GameOver.png');
             this.load.image('Decor', 'assets/Montagne_Finis.png');
-            this.load.image('Slime','assets/Slime.png')
+            this.load.image('Climb_Item','assets/Climb_Item.png');
+            this.load.image('Hearth','assets/Hearth.png');
+            this.load.spritesheet('Slime','assets/Spritesheet_Slime.png',{frameWidth:68,frameHeight:70});
             this.load.spritesheet('Roger','assets/Sprite_sheet_Roger.png',{frameWidth:139.9,frameHeight:118});
             this.load.spritesheet('Myreille','assets/Sprite_sheet_Myreille.png',{frameWidth:436,frameHeight:460});
-            this.load.spritesheet('projectile','assets/projectile.png',{frameWidth:32,frameHeight:32});
-            //this.load.image('bomb', 'assets/bomb.png');
-            //this.load.spritesheet('dude', 'assets/mario_dude.png', { frameWidth: 32, frameHeight: 48 });
-            //this.load.spritesheet('dude', 'assets/.png', { frameWidth: 32, frameHeight: 48 });
-        
-        
+
+            //this.load.spritesheet('projectile','assets/projectile.png',{frameWidth:32,frameHeight:32});
+         
     }
     function create ()
     {
@@ -79,18 +88,41 @@ var game = new Phaser.Game(config);
             this.cameras.main.fadeIn(3500);
             cursors = this.input.keyboard.createCursorKeys();
 
-            //Camera qui suit le joueur
+            //Camera ne quitte pas les limites de l'écran
             this.cameras.main.setBounds(0, 0, 1920 * 2, 1080 * 2);
             this.physics.world.setBounds(0, 0, 1920 * 2, 1080 * 2);
            
-            //loading des images et de la physique
+            //loading des images du décors et de la physique
             this.add.image(400,300, 'sky');
             this.add.image(400,300,'Decor');
+            GameOverImage = this.physics.add.staticGroup();
+            GameOverImage = this.add.image(750,400,'GameOver').setAlpha(0).setScrollFactor(0);
             const map = this.make.tilemap({key:'map'});
-            const tileset = map.addTilesetImage('tilesmap','tiles');
+            const tileset = map.addTilesetImage('Map','tiles');
 
-            map.createDynamicLayer('Décors',tileset);
-            wallsLayer = map.createDynamicLayer('Plateformes',tileset);
+
+            // Affichage de la barre de vie
+            Hearth1 = this.physics.add.staticGroup();
+            Hearth2 = this.physics.add.staticGroup();
+            Hearth3 = this.physics.add.staticGroup();
+
+            
+            Hearth1 = Hearth1.create(20,20, 'Hearth').setScrollFactor(0).setDepth(1);
+            Hearth2 = Hearth2.create(70,20, 'Hearth').setScrollFactor(0).setDepth(1);
+            Hearth3 = Hearth3.create(120,20, 'Hearth').setScrollFactor(0).setDepth(1);
+
+            //Affichage des différentes plateformes à partir de Tiles
+            map.createDynamicLayer('World',tileset);
+            Plateforme = map.createDynamicLayer('Plateformes',tileset);
+            Glace = map.createDynamicLayer('Glace',tileset);
+            Grimpette = map.createDynamicLayer('Grimpette',tileset);
+            Piques = map.createDynamicLayer('Piques',tileset);
+            Plateforme.setCollisionByExclusion(-1,true);
+            Glace.setCollisionByExclusion(-1,true);
+            Grimpette.setCollisionByExclusion(-1,true);
+            Piques.setCollisionByExclusion(-1,true);
+            
+
         
 
             
@@ -99,58 +131,36 @@ var game = new Phaser.Game(config);
 
 
 
-
-            //this.physics.arcade.collide(this.player, this.platforms, this.setFriction, null, this);
+        //Affichage du Joueur et de l'item PowerUp
         player = this.physics.add.sprite(100, 450, 'Slime');
+        Climb_Item = this.physics.add.sprite(800, 450, 'Climb_Item');
+
+        //Caméra suit le joueur
         this.cameras.main.startFollow(player);
         player.setBounce(0.2);
         player.setOffset(0,0);
 
-        player.setCollideWorldBounds(true);
-        
-        platforms = this.physics.add.staticGroup();
-        platforms.create(100,510,'ground');
-        //Le slime peut escalader les parois
-
-        //platforms_grimpette = Map.createDynamicLayer('grimpette',tileset,0,0);
-        //platforms_grimpette.setCollisionByExclusion(-1,true);
-        //platforms_grimpette.setCollisionByProperty({collides:true});
+        player.setCollideWorldBounds(true);           
 
         //Apparition des ennemis.
-        Roger1 = this.physics.add.sprite(100,210,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
-        Roger2 = this.physics.add.sprite(100,210,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
-        Roger3 = this.physics.add.sprite(100,210,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
-        Roger4 = this.physics.add.sprite(100,210,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
-        Roger5 = this.physics.add.sprite(100,210,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
-        Myreille1 = this.physics.add.sprite(150,260,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
-        Myreille2 = this.physics.add.sprite(150,260,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
-        Myreille3 = this.physics.add.sprite(150,260,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
-        projectile = this.physics.add.sprite(150,300,'projectile');
+        Roger1 = this.physics.add.sprite(900,510,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
+        Myreille1 = this.physics.add.sprite(1400,1200,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
+        Myreille2 = this.physics.add.sprite(950,260,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
+        //projectile = this.physics.add.sprite(150,300,'projectile');
+
         //Empecher les Corps de partir du monde
         Roger1.setCollideWorldBounds(true);
-        Roger2.setCollideWorldBounds(true);
-        Roger3.setCollideWorldBounds(true);
-        Roger4.setCollideWorldBounds(true);
-        Roger5.setCollideWorldBounds(true);
         Myreille1.setCollideWorldBounds(true);
         Myreille2.setCollideWorldBounds(true);
-        Myreille3.setCollideWorldBounds(true);
-        projectile.setCollideWorldBounds(true);
-        //Suppression des ennemis et projectiles au contact du slime
+        //projectile.setCollideWorldBounds(true);
+
+        //Suppression des ennemis et projectiles au contact du slime    
         this.physics.add.overlap(player,Roger1,CollisionRoger1,null,this);
-        this.physics.add.overlap(player,Roger2,CollisionRoger2,null,this);
-        this.physics.add.overlap(player,Roger3,CollisionRoger3,null,this);
-        this.physics.add.overlap(player,Roger4,CollisionRoger4,null,this);
-        this.physics.add.overlap(player,Roger5,CollisionRoger5,null,this);
         this.physics.add.overlap(player,Myreille1,CollisionMyreille1,null,this);
         this.physics.add.overlap(player,Myreille2,CollisionMyreille2,null,this);
-        this.physics.add.overlap(player,Myreille3,CollisionMyreille3,null,this);
-        this.physics.add.overlap(player,projectile,Collisionprojectile,null,this);
-
-
-        //Affichage des points de vie
-        scoreText = this.add.text(16, 16,HpSlime, { fontSize: '32px', fill: '#777' });
-
+        //this.physics.add.overlap(player,projectile,Collisionprojectile,null,this);
+        this.physics.add.overlap(player,Climb_Item,CollisionCLimb_Item,null,this);
+       
 
         // Animation des Spritesheets//
 
@@ -168,122 +178,42 @@ var game = new Phaser.Game(config);
             repeat: -1
 
         });
-        /*this.anims.create({
-            key:'Moving.Right',
-            frames:this.anims.generateFrameNumbers('Roger',{start : 10, end : 19}),
-            frameRate: 10,
-            repeat: -1
-
-        });*/
-
-        /*this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('Slime', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1
-        });*/
-
-        /*this.anims.create({
-            key: 'turn',
-            frames: [ { key: 'Slime', frame:  } ],
-            frameRate: 20
-        });
 
         this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('Slime', { start: 5, end: 8 }),
-            frameRate: 10,
-            repeat: -1
+            key:'Move.right',
+            frames:this.anims.generateFrameNumbers('Slime',{start:10,end : 19}),
+            frameRate:5,
+            repeat:1
         });
-            
-            platforms = this.physics.add.staticGroup();
-        //Fonction pause Exemple Phaser   
-        /*this.tweens.add({
-            targets: image1,
-            props: {
-                x: { value: 700, duration: 4000, flipX: true },
-                y: { value: 500, duration: 8000,  },
-            },
-            ease: 'Sine.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });*/
-        
-        var text = this.add.text(180, 0, 'Pause').setFont('32px Arial Black').setFill('#ffffff').setShadow(2, 2, "#333333", 2);
-        
-        this.input.on('gameobjectup', function (pointer, gameobject) {
-        if (gameobject === downButton && tweens.timeScale > 0)
-        {
-            tweens.pauseAll();
-        
-            text.setText('Pause All');
-        }
-        else if (gameobject === upButton && tweens.timeScale < 9.9)
-        {
-            tweens.resumeAll();
-        
-            text.setText('Resume All');
-        }
+        this.anims.create({
+            key:'Move.left',
+            frames:this.anims.generateFrameNumbers('Slime',{start:0,end : 9}),
+            frameRate:5,
+            repeat:1
         });
-        //Controles Manettes
-        //    if (this.input.gamepad.total === 0);
-        //{
-        //    (text = this.add.text(10, 10, 'Press any button on a connected Gamepad', { font: '16px Courier', fill: '#00ff00' }));
 
-        //  this.input.gamepad.once('connected', function (pad) {
-
-        //        console.log('connected', pad.id);
-
-        //        for (var i = 0; i < this.input.gamepad.total; i++)
-                //{
-        //            sprites.push(this.add.sprite(Phaser.Math.Between(200, 600), Phaser.Math.Between(100, 500), 'elephant'));
-        //        }
-
-        //        text.destroy();
-
-        //    },);
-        //else {
-        //    for (var i = 0; i < this.input.gamepad.total; i++)
-        //    {
-        //        sprites.push(this.add.sprite(Phaser.Math.Between(200, 600), Phaser.Math.Between(100, 500), 'elephant'));
-        //    }
-        //}
 
         //Collisions avec Objets et Plateformes.   
             cursors = this.input.keyboard.createCursorKeys();
             
             //Empeche les corps de traverser les plateformes
-            this.physics.add.collider(player,platforms);
-            this.physics.add.collider(Roger1,platforms);
-            this.physics.add.collider(Roger2,platforms);
-            this.physics.add.collider(Roger3,platforms);
-            this.physics.add.collider(Roger4,platforms);
-            this.physics.add.collider(Roger5,platforms);
-            this.physics.add.collider(Myreille1,platforms);
-            this.physics.add.collider(Myreille2,platforms);
-            this.physics.add.collider(Myreille3,platforms);
-            this.physics.add.collider(projectile,platforms);
+            this.physics.add.collider(player,Plateforme);
+            this.physics.add.collider(player,Glace,GetGlaced);
+            this.physics.add.collider(player,Grimpette,Grimpette_Wall);
+            this.physics.add.collider(player,Piques,GetPiques);
+            this.physics.add.collider(Roger1,Plateforme);
+            this.physics.add.collider(Myreille1,Plateforme);
+            this.physics.add.collider(Myreille2,Plateforme);
+            //this.physics.add.collider(projectile,Plateforme);
+            this.physics.add.collider(Climb_Item,Plateforme);
 
-            //this.physics.add.collider(player,grimpette);
-            //Manque la plateforme de glace et la roche de côté sur cette ligne.
-            //this.physics.add.collider(coins, platforms);
-            //recolte des items.
-            //this.physics.add.overlap(player, coins, collectcoins, null, this);
-            //setFriction: function setFriction (player, platform) {
-        //friction sur la Glace. Important. 
-        //if (platform.key === 'ice-platform')
-        //{
-            //player.body.x -= platform.body.x - platform.body.prev.x;
-        //}
-            //}
-        //}
 
-        // Déplacement des ennemis //
+        // Déplacement de Roger //
         
         tween= this.tweens.add({
             targets:Roger1,
             props:{
-                x: {value:200,duration:2000,flipX:true},
+                x: {value:700,duration:2000,flipX:true},
 
             },
             yoyo:true,
@@ -291,141 +221,74 @@ var game = new Phaser.Game(config);
             repeat: -1
         });
 
-        tween= this.tweens.add({
-            targets:Roger2,
-            props:{
-                x: {value:200,duration:2000,flipX:true},
-
-            },
-            yoyo:true,
-            delay:20,
-            repeat: -1
-        });
-        tween= this.tweens.add({
-            targets:Roger3,
-            props:{
-                x: {value:200,duration:2000,flipX:true},
-
-            },
-            yoyo:true,
-            delay:20,
-            repeat: -1
-        });
-        tween= this.tweens.add({
-            targets:Roger4,
-            props:{
-                x: {value:200,duration:2000,flipX:true},
-
-            },
-            yoyo:true,
-            delay:20,
-            repeat: -1
-        });
-        tween= this.tweens.add({
-            targets:Roger5,
-            props:{
-                x: {value:200,duration:2000,flipX:true},
-
-            },
-            yoyo:true,
-            delay:20,
-            repeat: -1
-        });
     }
 
 
     
     function update ()
-        {
-        //Contrôles Clavier.
-            /*if (cursors.left.isDown)
-            { 
-        
-                player.setVelocityX(-160);
+        { 
 
-                //player.anims.play('left', true);
-            }
-            else if (cursors.right.isDown)
-            {
-                player.setVelocityX(160);
 
-                //player.anims.play('right', true);
-            }
-            else
-            {
-                player.setVelocityX(0);
-
-                //player.anims.play('turn');
-            }
-
-            if (cursors.up.isDown && player.body.touching.down)
-            {
-                player.setVelocityY(-330);
-            }*/
-            //Animation des SpriteSheet// Plus déplacements.
+            //Animation des SpriteSheet// Plus déplacements
+            onPiques = player.body.blocked.down;
+            onGround = player.body.blocked.down;
+            onGrimpette = player.body.blocked.right;
+            
+            const acceleration = onGround ? 500:300;
             if (cursors.left.isDown)
             {
-                Roger1.anims.play('Moving.Left',true);
-                Roger2.anims.play('Moving.Left',true);
-                Roger3.anims.play('Moving.Left',true);
-                Roger4.anims.play('Moving.Left',true);
-                Roger5.anims.play('Moving.Left',true);
-                Myreille1.anims.play('Moving.Right',true);
-                Myreille2.anims.play('Moving.Right',true);
-                Myreille3.anims.play('Moving.Right',true);
                 player.setAccelerationX(-160);
+                player.anims.play('Move.left',true);
+
             
 
-                //player.anims.play('left', true);
             }
             else if (cursors.right.isDown)
-            {
+            {   player.anims.play('Move.right',true);
+                Roger1.anims.play('Moving.Left',true);
+                Myreille1.anims.play('Moving.Right',true);
+                Myreille2.anims.play('Moving.Right',true);
+                
                 player.setAccelerationX(160);
 
-                //player.anims.play('right', true);
             }
             else
             {
                 player.setAccelerationX(0);
 
-                //player.anims.play('turn');
             }
 
-            if (cursors.up.isDown && player.body.touching.down)
+            if (cursors.up.isDown && player.body.blocked.down)
             {
-                player.setVelocityY(-200);
+                player.setVelocityY(-300);
             }
 
-            //if (cursors.up.isDown)}
+            if (Grimpette= true && onGrimpette){
+                player.setVelocityY(-100);
+            }
+
+                if(invincible == true){
+        compteur-- ;
+        if(compteur == 0){
+            compteur = 30;
+            player.setTint(0xffffff);
+            invincible = false ;
+        }
+
+        //Passer l'écran de GameOver au dessus du jeu qd entrer en contact avec les piques
+        if (GameOver == true){
+            GameOverImage.setAlpha(1).setDepth(1);
+        }
+    }
+
             
 
 
-
-        /*const didPressJump = Phaser.Input.Keyboard.JustDown(this.keys.up);
-
-        // player can only double jump if the player just jumped
-        if (didPressJump) {
-            if (player.body.onFloor()) {
-                // player can only double jump if it is on the floor
-                this.canDoubleJump = true;
-                player.body.setVelocityY(-100);
-            } 
-            else if (this.canDoubleJump) {
-                // player can only jump 2x (double jump)
-                this.canDoubleJump = false;
-                player.body.setVelocityY(-100);
-            }   
-        }
-        var standing = this.player.body.blocked.down || this.player.body.touching.down;
-        if (!standing && this.wasStanding)
-        {
-            this.edgeTimer = this.time.time + 250;
-        }
-        //contrôles Manettes#1
+        //contrôles Manettes#1 n'ayant pas de manette, je n'ai pas pu vérifier leur fonctionnement. 
         //var pads = this.input.gamepad.gamepads;
 
             //for (var i = 0; i < pads.length; i++)
-            {
+            /*{
                 var gamepad = pads[i];
 
                 if (!gamepad)
@@ -459,90 +322,130 @@ var game = new Phaser.Game(config);
 
 
 
-    //Fonction qui fait disparaître les Items récoltables.
-    //function collectItems (player, coins)
-    //{
-    //coins.disableBody(true, true);
-
-    //coins += 10;
-    //scoreText.setText('Coins: ' + coins);
-
-    //if (coins.countActive(true) === 0)
-    //{
-        //coins.children.iterate(function (child) {
-
-            //child.enableBody(true, child.x, 0, true, true);
-
-        //});
-
-        //var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
-
-        
     //Collision Ennemis Contre Slime. Retrait des points de vie//
     function CollisionRoger1(){
-
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
             HpSlime -= 1;
             console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+            }
+            
             Roger1.destroy();
+        }
        
     }
-    function CollisionRoger2(){
-
-            HpSlime -= 1;
-            console.log(HpSlime);
-            Roger2.destroy();
-
-    }
-    function CollisionRoger3(){
-
-            HpSlime -= 1;
-            console.log(HpSlime);
-            Roger3.destroy();
-
-    }
-    function CollisionRoger4(){
-
-            HpSlime -= 1;
-            console.log(HpSlime);
-            Roger4.destroy();
-
-    }
-    function CollisionRoger5(){
-
-            HpSlime -= 1;
-            console.log(HpSlime);
-            Roger5.destroy();
-
-    }
+    
     function CollisionMyreille1(){
-
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
             HpSlime -= 1;
             console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+            }
+            
             Myreille1.destroy();
+        }
     }
     function CollisionMyreille2(){
-
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
             HpSlime -= 1;
             console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+
+            }
+            
             Myreille2.destroy();
+        }
     }
-    function CollisionMyreille3(){
-
+    // Je n'ai pas eu le temps de dessiner le spritesheet du projectile de la plante, du coup je ne l'ai pas intégré dans le jeu.
+    /*function Collisionprojectile(){
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
             HpSlime -= 1;
-            console.log(HpSlime);
-            Myreille3.destroy();
-    }
-    function Collisionprojectile(){
-
-            HpSlime -= 1;
+            if (HpSlime == 2){
+                Hearth1.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth3.destroy();
+            }
             console.log(HpSlime);
             projectile.destroy();
+        }
+    }*/
+    
+    //Récuprération Item pour pouvoir grimper
+    function CollisionCLimb_Item(){
+        Grimpette = true;
+            Climb_Item.destroy();
     }
+
+    //Grimper si entrer en contact d'un mur
+    function Grimpette_Wall(){
+        if (player.body.blocked.right){
+            player.rotation = -90;
+        }
+        else{
+            player.rotation = 0;
+        }
+    }
+
+    //Si entrer en contact des piques = Game Over
+    function GetPiques(){
+        HpSlime = -6;
+        console.log('dead');
+        player.setAlpha(0);
+        GameOver = true;    
+    }
+
+    //Si entrer en contact de la Glace, l'acceleration du joueur augmente
+    function GetGlaced(){
+        setAccelerationX = 4000;
+        player.rotation = 0;
+    }
+
+
+
+    
+
     
 </script>
 </body>
 </html>
-
-    
 
     
