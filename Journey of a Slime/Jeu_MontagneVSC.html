@@ -1,0 +1,451 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>A Slime's journey</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    
+<script type="text/javascript">
+
+var config = {
+        type: Phaser.AUTO,
+        width: 1920,
+        height:1080,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 200 },
+                debug: false
+            }
+        },
+        scene: {
+            
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+    
+var player;
+var Roger1;
+var Myreille1;
+var Myreille2;
+
+//var projectile;
+
+var Plateforme;
+var Grimpette = false;
+var onGrimpette;
+var Glace;
+var Climb_Item;
+var Piques;
+var onPiques;
+var cursors;
+var HpSlime = 3;
+var Hearth1;
+var Hearth2;
+var Hearth3;
+var invincible = false ;
+var compteur = 30;
+var scoreText;
+var tween;
+var GameOver = false;
+var GameOverImage;
+
+
+var game = new Phaser.Game(config);
+    
+    var jump =0;
+    
+    function preload()
+        {   
+            //Loading des Assets
+            this.load.image('tiles','assets/Map.png');
+            this.load.tilemapTiledJSON('map','assets/mapmountain.json');
+
+            this.load.image('sky', 'assets/Ciel.png');
+            this.load.image('GameOver','assets/GameOver.png');
+            this.load.image('Decor', 'assets/Montagne_Finis.png');
+            this.load.image('Climb_Item','assets/Climb_Item.png');
+            this.load.image('Hearth','assets/Hearth.png');
+            this.load.spritesheet('Slime','assets/Spritesheet_Slime.png',{frameWidth:68,frameHeight:70});
+            this.load.spritesheet('Roger','assets/Sprite_sheet_Roger.png',{frameWidth:139.9,frameHeight:118});
+            this.load.spritesheet('Myreille','assets/Sprite_sheet_Myreille.png',{frameWidth:436,frameHeight:460});
+
+            //this.load.spritesheet('projectile','assets/projectile.png',{frameWidth:32,frameHeight:32});
+         
+    }
+    function create ()
+    {
+            //Fade de la caméra pour dévoiler le monde
+            this.cameras.main.fadeIn(3500);
+            cursors = this.input.keyboard.createCursorKeys();
+
+            //Camera ne quitte pas les limites de l'écran
+            this.cameras.main.setBounds(0, 0, 1920 * 2, 1080 * 2);
+            this.physics.world.setBounds(0, 0, 1920 * 2, 1080 * 2);
+           
+            //loading des images du décors et de la physique
+            this.add.image(400,300, 'sky');
+            this.add.image(400,300,'Decor');
+            GameOverImage = this.physics.add.staticGroup();
+            GameOverImage = this.add.image(750,400,'GameOver').setAlpha(0).setScrollFactor(0);
+            const map = this.make.tilemap({key:'map'});
+            const tileset = map.addTilesetImage('Map','tiles');
+
+
+            // Affichage de la barre de vie
+            Hearth1 = this.physics.add.staticGroup();
+            Hearth2 = this.physics.add.staticGroup();
+            Hearth3 = this.physics.add.staticGroup();
+
+            
+            Hearth1 = Hearth1.create(20,20, 'Hearth').setScrollFactor(0).setDepth(1);
+            Hearth2 = Hearth2.create(70,20, 'Hearth').setScrollFactor(0).setDepth(1);
+            Hearth3 = Hearth3.create(120,20, 'Hearth').setScrollFactor(0).setDepth(1);
+
+            //Affichage des différentes plateformes à partir de Tiles
+            map.createDynamicLayer('World',tileset);
+            Plateforme = map.createDynamicLayer('Plateformes',tileset);
+            Glace = map.createDynamicLayer('Glace',tileset);
+            Grimpette = map.createDynamicLayer('Grimpette',tileset);
+            Piques = map.createDynamicLayer('Piques',tileset);
+            Plateforme.setCollisionByExclusion(-1,true);
+            Glace.setCollisionByExclusion(-1,true);
+            Grimpette.setCollisionByExclusion(-1,true);
+            Piques.setCollisionByExclusion(-1,true);
+            
+
+        
+
+            
+
+
+
+
+
+        //Affichage du Joueur et de l'item PowerUp
+        player = this.physics.add.sprite(100, 450, 'Slime');
+        Climb_Item = this.physics.add.sprite(800, 450, 'Climb_Item');
+
+        //Caméra suit le joueur
+        this.cameras.main.startFollow(player);
+        player.setBounce(0.2);
+        player.setOffset(0,0);
+
+        player.setCollideWorldBounds(true);           
+
+        //Apparition des ennemis.
+        Roger1 = this.physics.add.sprite(900,510,'Roger').setScale(1.5,1.5).setSize(80,60).setOffset(0,60).setFlipX(true);
+        Myreille1 = this.physics.add.sprite(1400,1200,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
+        Myreille2 = this.physics.add.sprite(950,260,'Myreille').setScale(0.5,0.5).setSize(250,225).setOffset(90,200);
+        //projectile = this.physics.add.sprite(150,300,'projectile');
+
+        //Empecher les Corps de partir du monde
+        Roger1.setCollideWorldBounds(true);
+        Myreille1.setCollideWorldBounds(true);
+        Myreille2.setCollideWorldBounds(true);
+        //projectile.setCollideWorldBounds(true);
+
+        //Suppression des ennemis et projectiles au contact du slime    
+        this.physics.add.overlap(player,Roger1,CollisionRoger1,null,this);
+        this.physics.add.overlap(player,Myreille1,CollisionMyreille1,null,this);
+        this.physics.add.overlap(player,Myreille2,CollisionMyreille2,null,this);
+        //this.physics.add.overlap(player,projectile,Collisionprojectile,null,this);
+        this.physics.add.overlap(player,Climb_Item,CollisionCLimb_Item,null,this);
+       
+
+        // Animation des Spritesheets//
+
+        this.anims.create({
+            key:'Moving.Left',
+            frames:this.anims.generateFrameNumbers('Roger',{start : 0, end : 9}),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key:'Moving.Right',
+            frames:this.anims.generateFrameNumbers('Myreille',{start : 0, end : 9}),
+            frameRate: 8,
+            repeat: -1
+
+        });
+
+        this.anims.create({
+            key:'Move.right',
+            frames:this.anims.generateFrameNumbers('Slime',{start:10,end : 19}),
+            frameRate:5,
+            repeat:1
+        });
+        this.anims.create({
+            key:'Move.left',
+            frames:this.anims.generateFrameNumbers('Slime',{start:0,end : 9}),
+            frameRate:5,
+            repeat:1
+        });
+
+
+        //Collisions avec Objets et Plateformes.   
+            cursors = this.input.keyboard.createCursorKeys();
+            
+            //Empeche les corps de traverser les plateformes
+            this.physics.add.collider(player,Plateforme);
+            this.physics.add.collider(player,Glace,GetGlaced);
+            this.physics.add.collider(player,Grimpette,Grimpette_Wall);
+            this.physics.add.collider(player,Piques,GetPiques);
+            this.physics.add.collider(Roger1,Plateforme);
+            this.physics.add.collider(Myreille1,Plateforme);
+            this.physics.add.collider(Myreille2,Plateforme);
+            //this.physics.add.collider(projectile,Plateforme);
+            this.physics.add.collider(Climb_Item,Plateforme);
+
+
+        // Déplacement de Roger //
+        
+        tween= this.tweens.add({
+            targets:Roger1,
+            props:{
+                x: {value:700,duration:2000,flipX:true},
+
+            },
+            yoyo:true,
+            delay:20,
+            repeat: -1
+        });
+
+    }
+
+
+    
+    function update ()
+        { 
+
+
+            //Animation des SpriteSheet// Plus déplacements
+            onPiques = player.body.blocked.down;
+            onGround = player.body.blocked.down;
+            onGrimpette = player.body.blocked.right;
+            
+            const acceleration = onGround ? 500:300;
+            if (cursors.left.isDown)
+            {
+                player.setAccelerationX(-160);
+                player.anims.play('Move.left',true);
+
+            
+
+            }
+            else if (cursors.right.isDown)
+            {   player.anims.play('Move.right',true);
+                Roger1.anims.play('Moving.Left',true);
+                Myreille1.anims.play('Moving.Right',true);
+                Myreille2.anims.play('Moving.Right',true);
+                
+                player.setAccelerationX(160);
+
+            }
+            else
+            {
+                player.setAccelerationX(0);
+
+            }
+
+            if (cursors.up.isDown && player.body.blocked.down)
+            {
+                player.setVelocityY(-300);
+            }
+
+            if (Grimpette= true && onGrimpette){
+                player.setVelocityY(-100);
+            }
+
+                if(invincible == true){
+        compteur-- ;
+        if(compteur == 0){
+            compteur = 30;
+            player.setTint(0xffffff);
+            invincible = false ;
+        }
+
+        //Passer l'écran de GameOver au dessus du jeu qd entrer en contact avec les piques
+        if (GameOver == true){
+            GameOverImage.setAlpha(1).setDepth(1);
+        }
+    }
+
+            
+
+
+        //contrôles Manettes#1 n'ayant pas de manette, je n'ai pas pu vérifier leur fonctionnement. 
+        //var pads = this.input.gamepad.gamepads;
+
+            //for (var i = 0; i < pads.length; i++)
+            /*{
+                var gamepad = pads[i];
+
+                if (!gamepad)
+                {
+                    continue;
+                }
+
+                var sprite = sprites[i];
+
+                if (gamepad.left)
+                {
+                    sprite.x -= 4;
+                    sprite.flipX = false;
+                }
+                else if (gamepad.right)
+                {
+                    sprite.x += 4;
+                    sprite.flipX = true;
+                }
+
+                if (gamepad.up)
+                {
+                    sprite.y -= 4;
+                }
+                else if (gamepad.down)
+                {
+                    sprite.y += 4;
+                }
+            }*/
+    };
+
+
+
+    //Collision Ennemis Contre Slime. Retrait des points de vie//
+    function CollisionRoger1(){
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
+            HpSlime -= 1;
+            console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+            }
+            
+            Roger1.destroy();
+        }
+       
+    }
+    
+    function CollisionMyreille1(){
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
+            HpSlime -= 1;
+            console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+            }
+            
+            Myreille1.destroy();
+        }
+    }
+    function CollisionMyreille2(){
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
+            HpSlime -= 1;
+            console.log(HpSlime);
+            if (HpSlime == 2){
+                Hearth3.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth1.destroy();
+                player.setAlpha(0);
+                GameOver = true;
+
+            }
+            
+            Myreille2.destroy();
+        }
+    }
+    // Je n'ai pas eu le temps de dessiner le spritesheet du projectile de la plante, du coup je ne l'ai pas intégré dans le jeu.
+    /*function Collisionprojectile(){
+        if(invincible == false){
+            invincible = true ;
+            player.setTint(0x589ac6 );
+            HpSlime -= 1;
+            if (HpSlime == 2){
+                Hearth1.destroy();
+            }
+            if (HpSlime == 1){
+                Hearth2.destroy();
+            }
+            if (HpSlime == 0){
+                Hearth3.destroy();
+            }
+            console.log(HpSlime);
+            projectile.destroy();
+        }
+    }*/
+    
+    //Récuprération Item pour pouvoir grimper
+    function CollisionCLimb_Item(){
+        Grimpette = true;
+            Climb_Item.destroy();
+    }
+
+    //Grimper si entrer en contact d'un mur
+    function Grimpette_Wall(){
+        if (player.body.blocked.right){
+            player.rotation = -90;
+        }
+        else{
+            player.rotation = 0;
+        }
+    }
+
+    //Si entrer en contact des piques = Game Over
+    function GetPiques(){
+        HpSlime = -6;
+        console.log('dead');
+        player.setAlpha(0);
+        GameOver = true;    
+    }
+
+    //Si entrer en contact de la Glace, l'acceleration du joueur augmente
+    function GetGlaced(){
+        setAccelerationX = 4000;
+        player.rotation = 0;
+    }
+
+
+
+    
+
+    
+</script>
+</body>
+</html>
+
+    
